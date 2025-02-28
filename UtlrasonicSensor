@@ -52,9 +52,90 @@ try:
         if dist < 5:  # 5 cm is approximately 2 inches
             GPIO.output(GPIO_LED, GPIO.HIGH)
             print("WARNING!!!!")
+
         else:
             GPIO.output(GPIO_LED, GPIO.LOW)
         
         time.sleep(0.01)
+finally:
+    GPIO.cleanup()
+-------------------------------------------------------------------------------------
+import RPi.GPIO as GPIO
+import time
+
+# GPIO Mode (BOARD / BCM)
+GPIO.setmode(GPIO.BCM)
+
+# Set GPIO Pins
+GPIO_TRIGGER = 21
+GPIO_ECHO = 20
+GPIO_LED = 17  # LED GPIO pin
+
+# Set GPIO direction (IN / OUT)
+GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
+GPIO.setup(GPIO_ECHO, GPIO.IN)
+GPIO.setup(GPIO_LED, GPIO.OUT)  # Set LED pin as output
+
+def distance():
+    # Set Trigger to HIGH
+    GPIO.output(GPIO_TRIGGER, True)
+
+    # Set Trigger after 0.01ms to LOW
+    time.sleep(0.00001)
+    GPIO.output(GPIO_TRIGGER, False)
+
+    StartTime = time.time()
+    StopTime = time.time()
+
+    # Save StartTime
+    while GPIO.input(GPIO_ECHO) == 0:
+        StartTime = time.time()
+
+    # Save time of arrival
+    while GPIO.input(GPIO_ECHO) == 1:
+        StopTime = time.time()
+
+    # Time difference between start and arrival
+    TimeElapsed = StopTime - StartTime
+    # Multiply with the sonic speed (34326 cm/s)
+    # and divide by 2, because there and back
+    distance = (TimeElapsed * 34326) / 2
+
+    return distance
+
+# Get an initial measurement to set up previous values
+prev_dist = distance()
+prev_time = time.time()
+
+try:
+    for x in range(100):
+        curr_dist = distance()       # Current distance measurement
+        curr_time = time.time()      # Current time measurement
+ 
+        # Calculate time difference and distance change
+        time_diff = curr_time - prev_time
+        dist_diff = curr_dist - prev_dist
+ 
+        # Compute velocity (cm/s) as change in distance over time
+        if time_diff > 0:
+            velocity = dist_diff / time_diff
+        else:
+            velocity = 0
+ 
+        print("Measured Distance = %.1f cm, Time Diff = %.3f s, Velocity = %.2f cm/s" % (curr_dist, time_diff, velocity))
+ 
+        # LED control: turn LED ON if object is within 5 cm (approx. 2 inches), OFF otherwise
+        if curr_dist < 5:
+            GPIO.output(GPIO_LED, GPIO.HIGH)
+            print("WARNING!!!!")
+        else:
+            GPIO.output(GPIO_LED, GPIO.LOW)
+ 
+        # Update previous measurements for the next iteration
+        prev_dist = curr_dist
+        prev_time = curr_time
+ 
+        time.sleep(0.01)  # Delay between successive measurements
+
 finally:
     GPIO.cleanup()
